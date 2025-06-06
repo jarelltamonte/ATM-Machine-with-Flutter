@@ -26,16 +26,13 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  String _username = '';
-  String _password = '';
+  final TextEditingController _pincodeController = TextEditingController();
+  String _pincode = '';
   // Function to validate login credentials
   void _login() {
     setState(() {
-      _username = _usernameController.text;
-      _password = _passwordController.text;
-      if (_username == 'jarell' && _password == '1234') {
+      _pincode = _pincodeController.text;
+      if (_pincode == 'random') {
         // Credentials match, show modal dialog
         _showLoginSuccessDialog();
       } else {
@@ -43,7 +40,7 @@ class _LoginPageState extends State<LoginPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Invalid Username/Password!\nUsername: $_username\nPassword: $_password',
+              'Invalid Pincode!\nPincode: $_pincode',
             ),
           ),
         );
@@ -90,13 +87,8 @@ class _LoginPageState extends State<LoginPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             TextField(
-              controller: _usernameController,
-              decoration: const InputDecoration(labelText: 'Username'),
-            ),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true, // Hide the password input
+              controller: _pincodeController,
+              decoration: const InputDecoration(labelText: 'Pincode'),
             ),
             const SizedBox(height: 20),
             ElevatedButton(onPressed: _login, child: const Text('Login')),
@@ -119,7 +111,7 @@ class HomePage extends StatelessWidget {
           children: <Widget>[
             // First card
             Card(
-              color: const Color(0xFFFF9800), // Hex color for orange
+              color: const Color(0xFFFF9800), 
               elevation: 5,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
