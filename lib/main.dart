@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Required for input formatters
 
 void main() {
   runApp(const MyApp());
@@ -71,6 +72,7 @@ class _LoginPageState extends State<LoginPage> {
   void _showLoginSuccessDialog() {
     showDialog(
       context: context,
+      barrierDismissible: false, // User must tap button to proceed
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Login Successful'),
@@ -78,8 +80,8 @@ class _LoginPageState extends State<LoginPage> {
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); 
-                Navigator.push(
+                Navigator.of(context).pop();
+                Navigator.pushReplacement( // Use pushReplacement to prevent going back to login
                   context,
                   MaterialPageRoute(builder: (context) => const HomePage()),
                 );
@@ -114,7 +116,7 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Icon(Icons.lock_outline, size: 60, color: const Color(0xFF2D3A4A)),
+                    const Icon(Icons.lock_outline, size: 60, color: Color(0xFF2D3A4A)),
                     const SizedBox(height: 20),
                     Text(
                       'ATM Login',
@@ -163,14 +165,160 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  double _balance = 100000.00;
+
+  void _showDepositDialog() {
+    final TextEditingController amountController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Deposit Funds'),
+          content: TextField(
+            controller: amountController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Amount',
+              prefixText: '₱',
+            ),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final double? amount = double.tryParse(amountController.text);
+                if (amount != null && amount > 0) {
+                  setState(() {
+                    _balance += amount;
+                  });
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Successfully deposited ₱${amount.toStringAsFixed(2)}'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Deposit'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPayBillsDialog() {
+    final TextEditingController billerController = TextEditingController();
+    final TextEditingController amountController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Pay Bills'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: billerController,
+                decoration: const InputDecoration(
+                  labelText: 'Biller Name',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Amount',
+                  prefixText: '₱',
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final double? amount = double.tryParse(amountController.text);
+                final String biller = billerController.text;
+
+                if (biller.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a biller name.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                if (amount == null || amount <= 0) {
+                   ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid amount.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                if (amount > _balance) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Insufficient funds.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                } else {
+                  setState(() {
+                    _balance -= amount;
+                  });
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Successfully paid ₱${amount.toStringAsFixed(2)} to $biller.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Pay'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home Page'),
         elevation: 0,
+        automaticallyImplyLeading: false, // Removes the back button
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -186,18 +334,18 @@ class HomePage extends StatelessWidget {
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const <Widget>[
+                  children: <Widget>[
                     Text(
-                      'Balance: ₱100,000.00',
-                      style: TextStyle(
+                      'Balance: ₱${_balance.toStringAsFixed(2)}', // Use state variable
+                      style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                    SizedBox(height: 10),
-                    Text(
-                      'This is your current balance. Here is some more information in another card.',
+                    const SizedBox(height: 10),
+                    const Text(
+                      'This is your current balance. Please select an option below.', // Updated text
                       style: TextStyle(fontSize: 18, color: Colors.white70),
                     ),
                   ],
@@ -208,66 +356,74 @@ class HomePage extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Card(
-                    color: const Color(0xFF6D8A96), // Muted teal
-                    elevation: 6,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const <Widget>[
-                          Icon(Icons.account_balance_wallet, color: Colors.white, size: 32),
-                          SizedBox(height: 10),
-                          Text(
-                            'Deposit',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                  child: InkWell(
+                    onTap: _showDepositDialog,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Card(
+                      color: const Color(0xFF6D8A96), // Muted teal
+                      elevation: 6,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const <Widget>[
+                            Icon(Icons.account_balance_wallet, color: Colors.white, size: 32),
+                            SizedBox(height: 10),
+                            Text(
+                              'Deposit',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            'Deposit funds to your account.',
-                            style: TextStyle(fontSize: 16, color: Colors.white70),
-                          ),
-                        ],
+                            SizedBox(height: 10),
+                            Text(
+                              'Deposit funds to your account.',
+                              style: TextStyle(fontSize: 16, color: Colors.white70),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Card(
-                    color: const Color(0xFFBFC9CA), // Matte gray
-                    elevation: 6,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const <Widget>[
-                          Icon(Icons.receipt_long, color: Color(0xFF2D3A4A), size: 32),
-                          SizedBox(height: 10),
-                          Text(
-                            'Pay Bills',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D3A4A),
+                  child: InkWell(
+                    onTap: _showPayBillsDialog,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Card(
+                      color: const Color(0xFFBFC9CA), // Matte gray
+                      elevation: 6,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const <Widget>[
+                            Icon(Icons.receipt_long, color: Color(0xFF2D3A4A), size: 32),
+                            SizedBox(height: 10),
+                            Text(
+                              'Pay Bills',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2D3A4A),
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            'Pay your bills easily.',
-                            style: TextStyle(fontSize: 16, color: Color(0xFF4F5D75)),
-                          ),
-                        ],
+                            SizedBox(height: 10),
+                            Text(
+                              'Pay your bills easily.',
+                              style: TextStyle(fontSize: 16, color: Color(0xFF4F5D75)),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
