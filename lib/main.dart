@@ -9,7 +9,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'ATM Machine',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.pinkAccent),
         useMaterial3: true,
@@ -28,19 +28,31 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _pincodeController = TextEditingController();
   String _pincode = '';
-  // Function to validate login credentials
+  int _attempts = 0;
+  final int _maxAttempts = 3;
   void _login() {
     setState(() {
+      if (_attempts >= _maxAttempts) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Maximum attempts reached. Please try again later.'),
+          ),
+        );
+        return;
+      }
       _pincode = _pincodeController.text;
       if (_pincode == 'random') {
+        _attempts = 0;
         // Credentials match, show modal dialog
         _showLoginSuccessDialog();
       } else {
+        _attempts++;
+        int remaining = _maxAttempts - _attempts;
         // Credentials do not match, show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Invalid Pincode!\nPincode: $_pincode',
+              'Invalid Pincode!\nPincode: $_pincode\nAttempts left: $remaining',
             ),
           ),
         );
@@ -48,7 +60,6 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  // Function to show a modal dialog for login success
   void _showLoginSuccessDialog() {
     showDialog(
       context: context,
@@ -59,8 +70,7 @@ class _LoginPageState extends State<LoginPage> {
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-                // Navigate to the next screen (HomePage)
+                Navigator.of(context).pop(); 
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const HomePage()),
@@ -111,7 +121,7 @@ class HomePage extends StatelessWidget {
           children: <Widget>[
             // First card
             Card(
-              color: const Color(0xFFFF9800), 
+              color: const Color.fromARGB(255, 135, 82, 1), 
               elevation: 5,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -122,7 +132,7 @@ class HomePage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const <Widget>[
                     Text(
-                      'Balance: ₱35,000.00',
+                      'Balance: ₱100,000.00',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -140,7 +150,7 @@ class HomePage extends StatelessWidget {
             //const SizedBox(height: 20), // Space between the two cards
             // Second card
             Card(
-              color: const Color(0xFFFF5733),
+              color: const Color.fromARGB(255, 47, 86, 0),
               elevation: 5,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
