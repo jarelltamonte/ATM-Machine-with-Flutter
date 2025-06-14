@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+// This is a global variable. It can be updated from anywhere.
+var appPin = '1234'; // Global PIN value
+
 void main() {
   runApp(const MyApp());
 }
@@ -32,13 +35,15 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _pincodeController = TextEditingController();
   int _attempts = 0;
   String? _error;
-  final String _correctPincode = '1234';
 
   void _login() {
-    if (_pincodeController.text == _correctPincode) {
-      Navigator.pushReplacement(
+    if (_pincodeController.text == appPin) {
+      // UPDATED: This navigation method ensures a clean stack for the home page.
+      // The user won't be able to use the Android back button to get back to the login screen.
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const HomePage()),
+        (Route<dynamic> route) => false,
       );
     } else {
       setState(() {
@@ -48,6 +53,7 @@ class _LoginPageState extends State<LoginPage> {
         } else {
           _error = 'Invalid pincode. Attempts left: ${3 - _attempts}';
         }
+        _pincodeController.clear();
       });
     }
   }
@@ -55,7 +61,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F6F9),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       body: Center(
         child: Card(
           elevation: 8,
@@ -92,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
                     prefixIcon: Icon(
                       Icons.pin,
                       color: Colors.blueGrey[700],
-                    ), // Added icon
+                    ),
                   ),
                   onSubmitted: (_) => _login(),
                 ),
@@ -164,20 +170,157 @@ class _HomePageState extends State<HomePage> {
     Navigator.pop(context);
   }
 
-  void _showErrorDialog(String message) {
+  void _transfer(String recipient, double amount) {
+    if (amount > _balance) {
+      _showErrorDialog('Insufficient funds!');
+      return;
+    }
+
+    if (recipient.isEmpty) {
+      _showErrorDialog('Please enter a recipient.');
+      return;
+    }
+
+    setState(() {
+      _balance -= amount;
+    });
+
+    Navigator.pop(context);
+
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Error'),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Transfer Successful'),
+        content: Text('₱${amount.toStringAsFixed(2)} sent to $recipient.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePinDialog() {
+    final currentPinController = TextEditingController();
+    final newPinController = TextEditingController();
+    final confirmPinController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Change PIN'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: currentPinController,
+                obscureText: true,
+                maxLength: 4,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Current PIN',
+                  counterText: '',
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter current PIN';
+                  }
+                  if (value != appPin) {
+                    return 'Incorrect current PIN';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: newPinController,
+                obscureText: true,
+                maxLength: 4,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'New PIN',
+                  counterText: '',
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty || value.length != 4) {
+                    return 'PIN must be 4 digits';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: confirmPinController,
+                obscureText: true,
+                maxLength: 4,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm New PIN',
+                  counterText: '',
+                ),
+                validator: (value) {
+                  if (value != newPinController.text) {
+                    return 'PINs do not match';
+                  }
+                  return null;
+                },
               ),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                appPin = newPinController.text;
+
+                Navigator.pop(context);
+
+                showDialog(
+                  context: this.context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Success'),
+                    content: const Text('PIN changed successfully!'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: const Text('OK'),
+                      )
+                    ],
+                  ),
+                );
+              }
+            },
+            child: const Text('Change'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -187,78 +330,64 @@ class _HomePageState extends State<HomePage> {
     required Function(double) onConfirmed,
   }) {
     final TextEditingController controller = TextEditingController();
-
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(title),
-            content: TextField(
-              controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Enter amount',
-                prefixText: '₱',
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final input = controller.text.trim();
-                  if (input.isEmpty) return;
-
-                  final amount = double.tryParse(input);
-                  if (amount == null || amount <= 0) {
-                    _showErrorDialog('Please enter a valid positive number.');
-                    return;
-                  }
-
-                  onConfirmed(amount);
-                },
-                child: Text(actionText),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Enter amount', prefixText: '₱'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
           ),
+          ElevatedButton(
+            onPressed: () {
+              final input = controller.text.trim();
+              if (input.isEmpty) return;
+              final amount = double.tryParse(input);
+              if (amount == null || amount <= 0) {
+                _showErrorDialog('Please enter a valid positive number.');
+                return;
+              }
+              Navigator.pop(dialogContext);
+              onConfirmed(amount);
+            },
+            child: Text(actionText),
+          ),
+        ],
+      ),
     );
   }
 
   void _showPayBillsDialog() {
     final TextEditingController billerController = TextEditingController();
     final TextEditingController amountController = TextEditingController();
-
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Pay Bills'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: billerController,
-              decoration: const InputDecoration(
-                labelText: 'Biller Name',
-              ),
+              decoration: const InputDecoration(labelText: 'Biller Name'),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Amount',
-                prefixText: '₱',
-              ),
+              decoration: const InputDecoration(labelText: 'Amount', prefixText: '₱'),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -275,9 +404,60 @@ class _HomePageState extends State<HomePage> {
                 _showErrorDialog('Please enter a valid positive number.');
                 return;
               }
+              Navigator.pop(dialogContext);
               _payBills(biller, amount);
             },
             child: const Text('Pay'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTransferDialog() {
+    final TextEditingController recipientController = TextEditingController();
+    final TextEditingController amountController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Transfer Funds'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: recipientController,
+              decoration: const InputDecoration(labelText: 'Recipient Name'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Amount', prefixText: '₱'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final recipient = recipientController.text.trim();
+              final input = amountController.text.trim();
+              if (recipient.isEmpty) {
+                _showErrorDialog('Please enter the recipient name.');
+                return;
+              }
+              final amount = double.tryParse(input);
+              if (amount == null || amount <= 0) {
+                _showErrorDialog('Please enter a valid amount.');
+                return;
+              }
+              Navigator.pop(dialogContext);
+              _transfer(recipient, amount);
+            },
+            child: const Text('Transfer'),
           ),
         ],
       ),
@@ -337,10 +517,30 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F6F9),
       appBar: AppBar(
+        // NEW: This leading button acts as a logout button.
+        leading: IconButton(
+          icon: const Icon(Icons.logout),
+          tooltip: 'Logout',
+          onPressed: () {
+            // This navigation method returns to a fresh LoginPage and clears all other pages.
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginPage()),
+              (Route<dynamic> route) => false,
+            );
+          },
+        ),
         title: const Text('My Wallet'),
         backgroundColor: Colors.blueGrey[700],
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.key),
+            tooltip: 'Change PIN',
+            onPressed: _showChangePinDialog,
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -423,6 +623,16 @@ class _HomePageState extends State<HomePage> {
                         title: 'Pay Bills',
                         subtitle: 'Pay your bills easily.',
                         onTap: _showPayBillsDialog,
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: _buildCard(
+                        color: const Color(0xFF546E7A),
+                        icon: Icons.send,
+                        title: 'Transfer',
+                        subtitle: 'Send funds to another person.',
+                        onTap: _showTransferDialog,
                       ),
                     ),
                   ],
